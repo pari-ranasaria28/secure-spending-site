@@ -1,15 +1,14 @@
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Transaction } from './Dashboard';
-import { Constants } from '@/integrations/supabase/types';
 
 interface EditTransactionDialogProps {
   transaction: Transaction | null;
@@ -18,65 +17,49 @@ interface EditTransactionDialogProps {
   onTransactionUpdated: () => void;
 }
 
+const incomeCategories = ['salary', 'freelance', 'investment', 'gift', 'other_income'];
+const expenseCategories = ['food', 'transportation', 'housing', 'utilities', 'healthcare', 'entertainment', 'shopping', 'education', 'travel', 'other_expense'];
+
 export const EditTransactionDialog = ({ transaction, open, onOpenChange, onTransactionUpdated }: EditTransactionDialogProps) => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    amount: '',
-    type: 'expense' as 'income' | 'expense',
-    category: '',
-    description: '',
-    date: ''
-  });
+  const [amount, setAmount] = useState('');
+  const [type, setType] = useState<'income' | 'expense'>('expense');
+  const [category, setCategory] = useState('');
+  const [description, setDescription] = useState('');
+  const [date, setDate] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const incomeCategories = Constants.public.Enums.transaction_category.filter(cat => 
-    ['salary', 'freelance', 'investment', 'gift', 'other_income'].includes(cat)
-  );
-  
-  const expenseCategories = Constants.public.Enums.transaction_category.filter(cat => 
-    ['food', 'transportation', 'housing', 'utilities', 'healthcare', 'entertainment', 'shopping', 'education', 'travel', 'other_expense'].includes(cat)
-  );
-
-  const availableCategories = formData.type === 'income' ? incomeCategories : expenseCategories;
+  const categories = type === 'income' ? incomeCategories : expenseCategories;
 
   useEffect(() => {
     if (transaction) {
-      setFormData({
-        amount: transaction.amount.toString(),
-        type: transaction.type,
-        category: transaction.category,
-        description: transaction.description || '',
-        date: transaction.date
-      });
+      setAmount(transaction.amount.toString());
+      setType(transaction.type);
+      setCategory(transaction.category);
+      setDescription(transaction.description || '');
+      setDate(transaction.date);
     }
   }, [transaction]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!transaction || !amount || !category) return;
+
+    setLoading(true);
     
-    if (!transaction) return;
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .update({
+          amount: parseFloat(amount),
+          type,
+          category: category as any,
+          description: description || null,
+          date
+        })
+        .eq('id', transaction.id);
 
-    setIsLoading(true);
+      if (error) throw error;
 
-    const { error } = await supabase
-      .from('transactions')
-      .update({
-        amount: parseFloat(formData.amount),
-        type: formData.type,
-        category: formData.category,
-        description: formData.description || null,
-        date: formData.date,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', transaction.id);
-
-    if (error) {
-      console.error('Error updating transaction:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update transaction",
-        variant: "destructive"
-      });
-    } else {
       toast({
         title: "Success",
         description: "Transaction updated successfully"
@@ -84,17 +67,16 @@ export const EditTransactionDialog = ({ transaction, open, onOpenChange, onTrans
       
       onTransactionUpdated();
       onOpenChange(false);
+    } catch (error) {
+      console.error('Error updating transaction:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update transaction",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
-    
-    setIsLoading(false);
-  };
-
-  const handleTypeChange = (type: 'income' | 'expense') => {
-    setFormData(prev => ({
-      ...prev,
-      type,
-      category: '' // Reset category when type changes
-    }));
   };
 
   return (
@@ -102,90 +84,83 @@ export const EditTransactionDialog = ({ transaction, open, onOpenChange, onTrans
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Edit Transaction</DialogTitle>
-          <DialogDescription>
-            Update the details of this transaction.
-          </DialogDescription>
         </DialogHeader>
-        
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label>Transaction Type</Label>
-            <RadioGroup 
-              value={formData.type} 
-              onValueChange={handleTypeChange}
-              className="flex gap-6"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="income" id="income" />
-                <Label htmlFor="income">Income</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="expense" id="expense" />
-                <Label htmlFor="expense">Expense</Label>
-              </div>
-            </RadioGroup>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="type">Type</Label>
+              <Select value={type} onValueChange={(value: 'income' | 'expense') => {
+                setType(value);
+                setCategory('');
+              }}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="income">Income</SelectItem>
+                  <SelectItem value="expense">Expense</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="amount">Amount</Label>
+              <Input
+                id="amount"
+                type="number"
+                step="0.01"
+                min="0"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                required
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="amount">Amount</Label>
-            <Input
-              id="amount"
-              type="number"
-              step="0.01"
-              placeholder="0.00"
-              value={formData.amount}
-              onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
+          <div>
             <Label htmlFor="category">Category</Label>
-            <Select 
-              value={formData.category} 
-              onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
-              required
-            >
+            <Select value={category} onValueChange={setCategory} required>
               <SelectTrigger>
                 <SelectValue placeholder="Select a category" />
               </SelectTrigger>
               <SelectContent>
-                {availableCategories.map(category => (
-                  <SelectItem key={category} value={category}>
-                    {category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                {categories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat.charAt(0).toUpperCase() + cat.slice(1).replace('_', ' ')}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description (Optional)</Label>
-            <Input
-              id="description"
-              placeholder="Enter description"
-              value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-            />
-          </div>
-
-          <div className="space-y-2">
+          <div>
             <Label htmlFor="date">Date</Label>
             <Input
               id="date"
               type="date"
-              value={formData.date}
-              onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
               required
             />
           </div>
 
-          <div className="flex gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+          <div>
+            <Label htmlFor="description">Description (Optional)</Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Add a description..."
+              rows={3}
+            />
+          </div>
+
+          <div className="flex justify-end space-x-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading} className="flex-1">
-              {isLoading ? 'Updating...' : 'Update Transaction'}
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Updating...' : 'Update Transaction'}
             </Button>
           </div>
         </form>

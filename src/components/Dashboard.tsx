@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +7,7 @@ import { PlusCircle, TrendingUp, TrendingDown, DollarSign, Calendar } from 'luci
 import { TransactionChart } from './TransactionChart';
 import { TransactionList } from './TransactionList';
 import { AddTransactionDialog } from './AddTransactionDialog';
+import { ThemeToggle } from './ThemeToggle';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
 
@@ -69,17 +69,18 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="border-b bg-card">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <DollarSign className="h-8 w-8 text-green-600 mr-2" />
-              <h1 className="text-xl font-semibold text-gray-900">Finance Tracker</h1>
+              <h1 className="text-xl font-semibold">Finance Tracker</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Welcome, {user?.email}</span>
+              <ThemeToggle />
+              <span className="text-sm text-muted-foreground">Welcome, {user?.email}</span>
               <Button variant="outline" onClick={handleSignOut}>
                 Sign Out
               </Button>
