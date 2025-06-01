@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -137,9 +138,13 @@ const Dashboard = () => {
           </Button>
         </div>
 
-        {/* Charts and Transactions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Charts - Side by Side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <TransactionChart transactions={transactions} />
+        </div>
+
+        {/* Transaction History - Full Width Below Charts */}
+        <div className="w-full">
           <TransactionList 
             transactions={transactions} 
             onTransactionUpdate={refetchTransactions}
